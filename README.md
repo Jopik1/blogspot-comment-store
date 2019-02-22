@@ -19,13 +19,9 @@ version - The version of the Worker (same as json format version)
 
 data - The file data which is stored (json.gz) 
 
-The file is stored in a directory tree when the first digit of the 
+The file is stored in a directory tree when the first digit of the batchID is the directory name and the filename is batchID.batchKey.json.gz
 
-batchID is the directory name and the filename is batchID.batchKey.json.gz
-
-For example for batchID=15 and batchKey=983 the file will be stored 
-
-as /1/15.983.json.gz
+For example for batchID=15 and batchKey=983 the file will be stored as /1/15.983.json.gz
 
 If the file with the exact name already exists, it will be overwritten.
 
