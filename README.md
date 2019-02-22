@@ -1,9 +1,8 @@
 
 End points: 
 
-http://blogstore.bot.nu/submitBatchUnit
 
-POST
+http://blogstore.bot.nu/submitBatchUnit POST
 
 Submits a Batch Unit for storage via Multipart Post,
 
@@ -29,26 +28,20 @@ If the file with the exact name already exists, it will be overwritten.
 Python example in: upload_batch_example.py
 
 
-http://blogstore.bot.nu/getVerifyBatchUnit?batchID=11111&batchKey=222222
-
-GET
+http://blogstore.bot.nu/getVerifyBatchUnit?batchID=11111&batchKey=222222 GET
 
 Verifies that Batch Unit exists, returns JSON with size of file
 
 Returns 404 if Batch Unit does not exist.
 
 
-http://blogstore.bot.nu/getBatchUnit?batchID=11111&batchKey=222222
-
-GET
+http://blogstore.bot.nu/getBatchUnit?batchID=11111&batchKey=222222 GET
 
 Retrieves a single batch unit (downloads the file)
 
 Returns 404 if Batch Unit does not exist.
 
 
-http://blogstore.bot.nu/uploadedBatches
-
-GET
+http://blogstore.bot.nu/uploadedBatches GET
 
 Lists directories with all uploaded batches and allows download
