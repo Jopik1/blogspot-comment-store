@@ -20,16 +20,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
 	"runtime"
-	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 )
+
+var storeDirectory = "./uploaded/"
+var regLeaveOnlyDigits = regexp.MustCompile("[^0-9]+")
 
 type workBatch struct {
 	BatchID string `json:"batch_id"`
@@ -71,12 +72,39 @@ func main() {
 	// Set a memory limit for multipart forms (default is 32 MiB)
 	router.MaxMultipartMemory = 2048 << 20 // 2048 MiB
 
-	randSource := rand.NewSource(time.Now().UnixNano())
-	randGen := rand.New(randSource)
+	router.StaticFS("/uploadedBatches", gin.Dir(storeDirectory, true))
 
-	router.GET("/getStatistics", func(c *gin.Context) {
-		result := fmt.Sprintf(`{"Periods":%s}`, "")
-		c.String(http.StatusOK, result)
+	router.GET("/getBatchUnit", func(ctx *gin.Context) {
+		batchID, batchIDok := ctx.GetQuery("batchID")
+		batchKey, batchKeyok := ctx.GetQuery("batchKey")
+		newWorkBatch := workBatch{}
+
+		if !batchIDok || !batchKeyok {
+			newWorkBatch.Message = fmt.Sprintf(`batchID or batchKey parameters missing`)
+			ctx.JSON(http.StatusBadRequest, newWorkBatch)
+			return
+		}
+		batchID = regLeaveOnlyDigits.ReplaceAllString(batchID, "")
+		batchKey = regLeaveOnlyDigits.ReplaceAllString(batchKey, "")
+
+		firstPart := batchID[:1]
+		fileName := batchID + "." + batchKey + ".json.gz"
+		targetPath := storeDirectory + firstPart + "/" + fileName
+
+		_, err := os.Stat(targetPath)
+		newWorkBatch.BatchID = batchID
+		if err == nil {
+			ctx.Header("Content-Description", "File Transfer")
+			ctx.Header("Content-Transfer-Encoding", "binary")
+			ctx.Header("Content-Disposition", "attachment; filename="+fileName)
+			ctx.Header("Content-Type", "application/octet-stream")
+			ctx.File(targetPath)
+		} else {
+			newWorkBatch.Message = "Batch doesn't exist " + err.Error()
+			newWorkBatch.Size = -1
+			ctx.JSON(http.StatusNotFound, newWorkBatch)
+		}
+		return
 	})
 
 	router.GET("/getVerifyBatchUnit", func(ctx *gin.Context) {
@@ -89,28 +117,35 @@ func main() {
 			ctx.JSON(http.StatusBadRequest, newWorkBatch)
 			return
 		}
-		tmp, _ := strconv.Atoi(batchID)
-		batchID = strconv.FormatInt(int64(tmp), 10) // make sure the value is strictly numeric to avoid path injection
-		tmp, _ = strconv.Atoi(batchKey)
-		batchKey = strconv.FormatInt(int64(tmp), 10)
+		batchID = regLeaveOnlyDigits.ReplaceAllString(batchID, "")
+		batchKey = regLeaveOnlyDigits.ReplaceAllString(batchKey, "")
 
 		firstPart := batchID[:1]
 		fileName := batchID + "." + batchKey + ".json.gz"
-		targetPath := "./uploaded/" + firstPart + "/" + fileName
+		targetPath := storeDirectory + firstPart + "/" + fileName
 
-		ctx.Header("Content-Description", "File Transfer")
-		ctx.Header("Content-Transfer-Encoding", "binary")
-		ctx.Header("Content-Disposition", "attachment; filename="+fileName)
-		ctx.Header("Content-Type", "application/octet-stream")
-		ctx.File(targetPath)
+		fileInfo, err := os.Stat(targetPath)
+		newWorkBatch.BatchID = batchID
+		if err == nil {
+			newWorkBatch.Message = "Batch Exists"
+			newWorkBatch.Size = fileInfo.Size()
+			ctx.JSON(http.StatusOK, newWorkBatch)
+			return
+		} else {
+			newWorkBatch.Message = "Batch doesn't exist"
+			newWorkBatch.Size = -1
+			ctx.JSON(http.StatusNotFound, newWorkBatch)
+			return
+		}
 	})
 
 	router.POST("/submitBatchUnit", func(c *gin.Context) {
 		fmt.Println("POST")
-		batchID := c.PostForm("batchID")
-		batchKey := c.PostForm("batchKey")
+		batchID := regLeaveOnlyDigits.ReplaceAllString(c.PostForm("batchID"), "")
+		batchKey := regLeaveOnlyDigits.ReplaceAllString(c.PostForm("batchKey"), "")
 		workerID := c.PostForm("workerID")
 		version := c.PostForm("version")
+
 		remoteIP := c.Request.RemoteAddr
 
 		logLine := fmt.Sprintf(`submitBatchWorkUnit batchID:%s batchKey:%s workerID:%s version:%s IP:%s`, batchID, batchKey, workerID, version, remoteIP)
@@ -120,14 +155,16 @@ func main() {
 		file, err := c.FormFile("data")
 		newWorkBatch := workBatch{}
 		newWorkBatch.Size = -1
+		newWorkBatch.BatchID = batchID
 		if err != nil {
+
 			newWorkBatch.Message = fmt.Sprintf(`Error recieving form file: %s`, err.Error())
 			c.JSON(http.StatusBadRequest, newWorkBatch)
 			return
 		}
 
 		firstPart := batchID[:1]
-		path := "./uploaded/" + firstPart + "/"
+		path := storeDirectory + firstPart + "/"
 		genPath(&path)
 		fmt.Println(path)
 		filename := path + batchID + "." + batchKey + ".json.gz"
@@ -136,9 +173,7 @@ func main() {
 			c.JSON(http.StatusBadRequest, newWorkBatch)
 			return
 		}
-		if false {
-			fmt.Println(randGen.Int63())
-		}
+
 		newWorkBatch.Message = "Batch Accepted"
 		fileInfo, err := os.Stat(filename)
 		if err == nil {
