@@ -10,7 +10,7 @@ batchID - Batch ID
 batchKey - Batch Random Key (supplied by the master)
 workerID - Worker ID (supplied by the master)
 version - The version of the Worker (same as json format version)
-data - The file data which is stored (json.gz)
+data - The file data which is stored (json.gz) 
 
 The file is stored in a directory tree when the first digit of the 
 batchID is the directory name and the filename is batchID.batchKey.json.gz
