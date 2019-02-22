@@ -7,7 +7,7 @@ server_name = 'blogstore.bot.nu'
 
 async def upload(batch_id, batch_key, worker_id, version, filename):
     async with aiohttp.ClientSession() as session:
-        url = 'http://' + server_name + '/submitBatchWorkUnit'
+        url = 'http://' + server_name + '/submitBatchUnit'
         data = FormData()
 
         data.add_field('batchID', batch_id)

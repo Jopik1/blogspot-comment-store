@@ -148,7 +148,7 @@ func main() {
 
 		remoteIP := c.Request.RemoteAddr
 
-		logLine := fmt.Sprintf(`submitBatchWorkUnit batchID:%s batchKey:%s workerID:%s version:%s IP:%s`, batchID, batchKey, workerID, version, remoteIP)
+		logLine := fmt.Sprintf(`submitBatchUnit batchID:%s batchKey:%s workerID:%s version:%s IP:%s`, batchID, batchKey, workerID, version, remoteIP)
 
 		fmt.Println(logLine)
 
