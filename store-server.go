@@ -20,16 +20,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
 	"runtime"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 )
 
 var storeDirectory = "./uploaded/"
+var moveDirectory = "./overwritten/"
 var regLeaveOnlyDigits = regexp.MustCompile("[^0-9]+")
 
 type workBatch struct {
@@ -71,6 +75,7 @@ func main() {
 	router := gin.Default()
 	// Set a memory limit for multipart forms (default is 32 MiB)
 	router.MaxMultipartMemory = 2048 << 20 // 2048 MiB
+	rand.Seed(time.Now().UTC().UnixNano())
 
 	router.StaticFS("/uploadedBatches", gin.Dir(storeDirectory, true))
 
@@ -168,6 +173,15 @@ func main() {
 		genPath(&path)
 		fmt.Println(path)
 		filename := path + batchID + "." + batchKey + ".json.gz"
+		fileInfo, err := os.Stat(filename)
+		if err == nil {
+			// file already exists, let's move it to another directory
+
+			newName := moveDirectory + batchID + "." + batchKey + "." + strconv.FormatInt(rand.Int63(), 36) + ".json.gz"
+			fmt.Println("Overwritting existing file ", filename, " Old file moved to", newName)
+			os.Rename(filename, newName)
+		}
+
 		if err := c.SaveUploadedFile(file, filename); err != nil {
 			newWorkBatch.Message = fmt.Sprintf(`Error recieving file: %s`, err.Error())
 			c.JSON(http.StatusBadRequest, newWorkBatch)
@@ -175,7 +189,7 @@ func main() {
 		}
 
 		newWorkBatch.Message = "Batch Accepted"
-		fileInfo, err := os.Stat(filename)
+		fileInfo, err = os.Stat(filename)
 		if err == nil {
 			newWorkBatch.Size = fileInfo.Size()
 		} else {
